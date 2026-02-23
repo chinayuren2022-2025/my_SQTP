@@ -11,7 +11,7 @@ import AdminPanel from './components/AdminPanel';
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(() => loadData('current_user', null));
   const [activeTab, setActiveTab] = useState('forum');
-  
+
   // App States
   const [posts, setPosts] = useState<Post[]>(() => loadData('posts', INITIAL_POSTS));
   const [quote, setQuote] = useState(() => loadData('quote', '书山有路勤为径，学海无涯苦作舟。'));
@@ -27,6 +27,20 @@ const App: React.FC = () => {
   useEffect(() => { saveData('words', words); }, [words]);
   useEffect(() => { saveData('suggestions', suggestions); }, [suggestions]);
   useEffect(() => { saveData('mistakes', mistakes); }, [mistakes]);
+
+  // 页面加载时，从后端获取每日励志名言
+  useEffect(() => {
+    fetch('http://localhost:8000/forum/quote')
+      .then(res => res.json())
+      .then(data => {
+        if (data.content) {
+          setQuote(data.content);
+        }
+      })
+      .catch(err => {
+        console.error('获取名言失败:', err);
+      });
+  }, []);
 
   if (!user) {
     return <Login onLogin={setUser} />;
@@ -44,26 +58,26 @@ const App: React.FC = () => {
             <div className="flex items-center space-x-8">
               <span className="text-2xl font-bold text-blue-600">学令教育</span>
               <div className="hidden md:flex space-x-4">
-                <button 
+                <button
                   onClick={() => setActiveTab('forum')}
                   className={`px-3 py-2 text-sm font-medium ${activeTab === 'forum' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                   论坛区
                 </button>
-                <button 
+                <button
                   onClick={() => setActiveTab('resources')}
                   className={`px-3 py-2 text-sm font-medium ${activeTab === 'resources' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                   资料区
                 </button>
-                <button 
+                <button
                   onClick={() => setActiveTab('quiz')}
                   className={`px-3 py-2 text-sm font-medium ${activeTab === 'quiz' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                   单词默写器
                 </button>
                 {isAdmin && (
-                  <button 
+                  <button
                     onClick={() => setActiveTab('admin')}
                     className={`px-3 py-2 text-sm font-medium ${activeTab === 'admin' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                   >
@@ -74,7 +88,7 @@ const App: React.FC = () => {
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-500">欢迎, {user.username} ({isAdmin ? '管理员' : '学生'})</span>
-              <button 
+              <button
                 onClick={() => setUser(null)}
                 className="text-sm text-red-500 hover:underline"
               >
@@ -88,18 +102,18 @@ const App: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'forum' && (
-          <Forum 
-            posts={posts} 
-            setPosts={setPosts} 
-            quote={quote} 
-            setQuote={setQuote} 
-            isAdmin={isAdmin} 
+          <Forum
+            posts={posts}
+            setPosts={setPosts}
+            quote={quote}
+            setQuote={setQuote}
+            isAdmin={isAdmin}
           />
         )}
         {activeTab === 'resources' && (
-          <ResourcesSection 
-            resources={resources} 
-            setResources={setResources} 
+          <ResourcesSection
+            resources={resources}
+            setResources={setResources}
             isAdmin={isAdmin}
             user={user}
             suggestions={suggestions}
@@ -107,18 +121,18 @@ const App: React.FC = () => {
           />
         )}
         {activeTab === 'quiz' && (
-          <WordQuiz 
-            words={words} 
+          <WordQuiz
+            words={words}
             setWords={setWords}
-            mistakes={mistakes} 
-            setMistakes={setMistakes} 
-            isAdmin={isAdmin} 
+            mistakes={mistakes}
+            setMistakes={setMistakes}
+            isAdmin={isAdmin}
           />
         )}
         {activeTab === 'admin' && isAdmin && (
-          <AdminPanel 
-            suggestions={suggestions} 
-            setSuggestions={setSuggestions} 
+          <AdminPanel
+            suggestions={suggestions}
+            setSuggestions={setSuggestions}
           />
         )}
       </main>
