@@ -280,6 +280,38 @@ if (res.url.startsWith('/files/')) {
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
   </svg>
 </button>
+{/* 新增：删除按钮 - 只有管理员可见 */}
+{isAdmin && (
+  <button
+    onClick={async () => {
+      if (!window.confirm(`⚠️ 确定要删除 "${res.title}" 吗？\n此操作不可恢复！`)) return;
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/resources/${res.id}`, {
+          method: 'DELETE',
+        });
+        
+        if (response.ok) {
+          alert('✅ 删除成功');
+          // 从列表中移除
+          setResources(resources.filter(r => r.id !== res.id));
+        } else {
+          const data = await response.json();
+          alert(`❌ 删除失败: ${data.detail || '未知错误'}`);
+        }
+      } catch (error) {
+        console.error('删除失败:', error);
+        alert('❌ 网络错误，请重试');
+      }
+    }}
+    className="text-red-600 hover:text-red-800 p-2"
+    title="删除"
+  >
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  </button>
+)}
           </div>
         </div>
         {/* 文件类型提示 */}

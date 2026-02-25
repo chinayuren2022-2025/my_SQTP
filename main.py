@@ -172,6 +172,40 @@ async def upload_resource(title: str = Form(...), module: str = Form(...), file:
     
     return {"message": "资料上传成功", "file": file.filename}
 
+@app.delete("/resources/{resource_id}")
+def delete_resource(resource_id: int, db: Session = Depends(get_db)):
+    """删除资料（同时删除文件和数据库记录）"""
+    import os
+    from pathlib import Path
+    
+    # 1. 查找数据库记录
+    resource = db.query(models.Resource).filter(models.Resource.id == resource_id).first()
+    if not resource:
+        raise HTTPException(status_code=404, detail="资料不存在")
+    
+    # 2. 获取文件路径
+    if resource.file_path:
+        # 从 file_path 中提取文件名
+        filename = os.path.basename(resource.file_path)
+        file_path = Path(__file__).parent / "uploads" / "resources" / filename
+        
+        # 3. 删除文件（如果存在）
+        try:
+            if file_path.exists():
+                os.remove(file_path)
+                print(f"✅ 文件删除成功: {file_path}")
+            else:
+                print(f"⚠️ 文件不存在: {file_path}")
+        except Exception as e:
+            print(f"❌ 删除文件失败: {e}")
+            # 即使文件删除失败，也继续删除数据库记录
+    
+    # 4. 删除数据库记录
+    db.delete(resource)
+    db.commit()
+    
+    return {"message": "资料删除成功"}
+
 # --- 建议与反馈 ---
 
 @app.post("/suggestions")
