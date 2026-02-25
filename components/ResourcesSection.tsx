@@ -142,23 +142,189 @@ const ResourcesSection: React.FC<ResourcesProps> = ({ resources, setResources, i
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredResources.map(res => (
-          <div key={res.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="bg-blue-50 p-2 rounded-lg">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-900">{res.title}</h4>
-                <p className="text-xs text-gray-500">{res.module} · {res.date}</p>
-              </div>
+  {filteredResources.map(res => {
+    // 判断文件类型
+    const isImage = res.url.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i);
+    const isPdf = res.url.match(/\.pdf$/i);
+    const isText = res.url.match(/\.(txt|md|js|ts|jsx|tsx|html|css|json)$/i);
+    
+    return (
+      <div key={res.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center space-x-3">
+            <div className="bg-blue-50 p-2 rounded-lg">
+              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
             </div>
-            <a href={res.url} className="text-blue-600 hover:text-blue-800 p-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-            </a>
+            <div>
+              <h4 className="font-semibold text-gray-900">{res.title}</h4>
+              <p className="text-xs text-gray-500">{res.module} · {res.date}</p>
+            </div>
           </div>
-        ))}
+          <div className="flex space-x-2">
+            {/* 预览按钮 - 只有可预览的文件才显示 */}
+            {(isImage || isPdf || isText) && (
+              <button
+                onClick={() => {
+                  const previewUrl = `${API_BASE_URL}${res.url}`;
+                  window.open(previewUrl, '_blank');
+                }}
+                className="text-green-600 hover:text-green-800 p-2"
+                title="预览"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </button>
+            )}
+           {/* 下载按钮 - 真正的文件下载 */}
+<button
+  onClick={async () => {
+    if (!window.confirm(`确定要下载 "${res.title}" 吗？`)) return;
+    
+    // 显示下载中提示
+    const downloadToast = document.createElement('div');
+    downloadToast.innerText = '⏳ 准备下载...';
+    downloadToast.style.cssText = 'position:fixed;top:20px;right:20px;background:#3b82f6;color:white;padding:10px 20px;border-radius:8px;z-index:9999;';
+    document.body.appendChild(downloadToast);
+    
+    try {
+      // 判断文件路径格式，构建正确的下载地址
+let downloadUrl;
+if (res.url.startsWith('/files/')) {
+  // 新格式：/files/resources/xxx.jpg
+  downloadUrl = `http://localhost:8000${res.url}`;
+} else {
+  // 旧格式：可能是 /uploads/xxx.jpg 或其他
+  const fileName = res.url.split('/').pop();
+  downloadUrl = `http://localhost:8000/files/resources/${fileName}`;
+}
+      console.log('开始下载:', downloadUrl);
+      
+      // 使用 fetch 获取文件，设置超时
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
+      
+      const response = await fetch(downloadUrl, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`下载失败: ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      
+      // 更新提示
+      downloadToast.innerText = '📦 准备保存...';
+      
+      // 创建下载链接
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      
+      // 从 URL 或标题中提取文件名
+      const fileName = res.url.split('/').pop() || `${res.title}.pdf`;
+      link.download = fileName;
+      
+      // 触发下载
+      document.body.appendChild(link);
+      link.click();
+      
+      // 清理
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      
+      // 移除下载提示
+      document.body.removeChild(downloadToast);
+      
+      // 显示成功提示
+      const successToast = document.createElement('div');
+      successToast.innerText = '✅ 下载完成';
+      successToast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:10px 20px;border-radius:8px;z-index:9999;';
+      document.body.appendChild(successToast);
+      setTimeout(() => {
+        if (document.body.contains(successToast)) {
+          document.body.removeChild(successToast);
+        }
+      }, 2000);
+      
+    } catch (error) {
+      console.error('下载失败:', error);
+      
+      // 移除下载提示
+      if (document.body.contains(downloadToast)) {
+        document.body.removeChild(downloadToast);
+      }
+      
+      // 显示错误提示
+      const errorToast = document.createElement('div');
+      errorToast.innerText = error.name === 'AbortError' ? '⏰ 下载超时，请重试' : '❌ 下载失败，请重试';
+      errorToast.style.cssText = 'position:fixed;top:20px;right:20px;background:#ef4444;color:white;padding:10px 20px;border-radius:8px;z-index:9999;';
+      document.body.appendChild(errorToast);
+      setTimeout(() => {
+        if (document.body.contains(errorToast)) {
+          document.body.removeChild(errorToast);
+        }
+      }, 3000);
+    }
+  }}
+  className="text-blue-600 hover:text-blue-800 p-2"
+  title="下载"
+>
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+  </svg>
+</button>
+{/* 新增：删除按钮 - 只有管理员可见 */}
+{isAdmin && (
+  <button
+    onClick={async () => {
+      if (!window.confirm(`⚠️ 确定要删除 "${res.title}" 吗？\n此操作不可恢复！`)) return;
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/resources/${res.id}`, {
+          method: 'DELETE',
+        });
+        
+        if (response.ok) {
+          alert('✅ 删除成功');
+          // 从列表中移除
+          setResources(resources.filter(r => r.id !== res.id));
+        } else {
+          const data = await response.json();
+          alert(`❌ 删除失败: ${data.detail || '未知错误'}`);
+        }
+      } catch (error) {
+        console.error('删除失败:', error);
+        alert('❌ 网络错误，请重试');
+      }
+    }}
+    className="text-red-600 hover:text-red-800 p-2"
+    title="删除"
+  >
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  </button>
+)}
+          </div>
+        </div>
+        {/* 文件类型提示 */}
+        <div className="text-xs text-gray-400 mt-1">
+          {isImage && '🖼️ 图片文件'}
+          {isPdf && '📄 PDF文档'}
+          {isText && '📝 文本文件'}
+          {!isImage && !isPdf && !isText && '📁 其他文件'}
+        </div>
       </div>
+    );
+  })}
+</div>
 
       {!isAdmin && userMySuggestions.length > 0 && (
         <div className="mt-12">
