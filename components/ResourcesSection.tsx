@@ -179,26 +179,107 @@ const ResourcesSection: React.FC<ResourcesProps> = ({ resources, setResources, i
                 </svg>
               </button>
             )}
-            {/* 下载按钮 - 带确认框 */}
-            <button
-              onClick={() => {
-                if (window.confirm(`确定要下载 "${res.title}" 吗？`)) {
-                  const downloadUrl = `${API_BASE_URL}${res.url}`;
-                  const link = document.createElement('a');
-                  link.href = downloadUrl;
-                  link.download = res.url.split('/').pop() || '下载';
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                }
-              }}
-              className="text-blue-600 hover:text-blue-800 p-2"
-              title="下载"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-            </button>
+           {/* 下载按钮 - 真正的文件下载 */}
+<button
+  onClick={async () => {
+    if (!window.confirm(`确定要下载 "${res.title}" 吗？`)) return;
+    
+    // 显示下载中提示
+    const downloadToast = document.createElement('div');
+    downloadToast.innerText = '⏳ 准备下载...';
+    downloadToast.style.cssText = 'position:fixed;top:20px;right:20px;background:#3b82f6;color:white;padding:10px 20px;border-radius:8px;z-index:9999;';
+    document.body.appendChild(downloadToast);
+    
+    try {
+      // 判断文件路径格式，构建正确的下载地址
+let downloadUrl;
+if (res.url.startsWith('/files/')) {
+  // 新格式：/files/resources/xxx.jpg
+  downloadUrl = `http://localhost:8000${res.url}`;
+} else {
+  // 旧格式：可能是 /uploads/xxx.jpg 或其他
+  const fileName = res.url.split('/').pop();
+  downloadUrl = `http://localhost:8000/files/resources/${fileName}`;
+}
+      console.log('开始下载:', downloadUrl);
+      
+      // 使用 fetch 获取文件，设置超时
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
+      
+      const response = await fetch(downloadUrl, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`下载失败: ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      
+      // 更新提示
+      downloadToast.innerText = '📦 准备保存...';
+      
+      // 创建下载链接
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      
+      // 从 URL 或标题中提取文件名
+      const fileName = res.url.split('/').pop() || `${res.title}.pdf`;
+      link.download = fileName;
+      
+      // 触发下载
+      document.body.appendChild(link);
+      link.click();
+      
+      // 清理
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      
+      // 移除下载提示
+      document.body.removeChild(downloadToast);
+      
+      // 显示成功提示
+      const successToast = document.createElement('div');
+      successToast.innerText = '✅ 下载完成';
+      successToast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:10px 20px;border-radius:8px;z-index:9999;';
+      document.body.appendChild(successToast);
+      setTimeout(() => {
+        if (document.body.contains(successToast)) {
+          document.body.removeChild(successToast);
+        }
+      }, 2000);
+      
+    } catch (error) {
+      console.error('下载失败:', error);
+      
+      // 移除下载提示
+      if (document.body.contains(downloadToast)) {
+        document.body.removeChild(downloadToast);
+      }
+      
+      // 显示错误提示
+      const errorToast = document.createElement('div');
+      errorToast.innerText = error.name === 'AbortError' ? '⏰ 下载超时，请重试' : '❌ 下载失败，请重试';
+      errorToast.style.cssText = 'position:fixed;top:20px;right:20px;background:#ef4444;color:white;padding:10px 20px;border-radius:8px;z-index:9999;';
+      document.body.appendChild(errorToast);
+      setTimeout(() => {
+        if (document.body.contains(errorToast)) {
+          document.body.removeChild(errorToast);
+        }
+      }, 3000);
+    }
+  }}
+  className="text-blue-600 hover:text-blue-800 p-2"
+  title="下载"
+>
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+  </svg>
+</button>
           </div>
         </div>
         {/* 文件类型提示 */}
